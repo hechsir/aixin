@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>❤</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+
+<body>
+    <div id="container"></div>
+    <script>
+        // 创建场景
+        const scene = new THREE.Scene();
+        // 创建相机
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+
+        // 定义相机移动范围和速度
+        const cameraMoveRange = 2;
+        const cameraMoveSpeed = 0.01;
+
+        // 初始化鼠标位置
+        let mouseX = 0;
+        let mouseY = 0;
+
+        // 监听鼠标移动事件
+        document.addEventListener('mousemove', (event) => {
+            // 计算鼠标在窗口中的相对位置
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // 创建渲染器
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // 定义爱心形状的顶点
+        const heartShape = new THREE.Shape();
+        const scale = 0.2;
+        for (let t = 0; t <= 2 * Math.PI; t += 0.01) {
+            const x = 16 * Math.pow(Math.sin(t), 3);
+            const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+            if (t === 0) {
+                heartShape.moveTo(x * scale, y * scale);
+            } else {
+                heartShape.lineTo(x * scale, y * scale);
+            }
+        }
+        // 创建爱心几何体
+        const geometry = new THREE.ShapeGeometry(heartShape);
+        // 创建填充材质
+        const fillMaterial = new THREE.MeshBasicMaterial({ color: 0xff9999, wireframe: false });
+        // 创建轮廓材质
+        const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+        const outlineGeometry = new THREE.BufferGeometry().setFromPoints(heartShape.getPoints());
+
+        // 创建正面爱心网格
+        const frontHeart = new THREE.Mesh(geometry, fillMaterial);
+        frontHeart.rotation.y = Math.PI; // 将正面爱心旋转 180°
+        frontHeart.scale.y = -1; // 倒置正面爱心
+        frontHeart.renderOrder = 100; // 设置渲染顺序为较大值
+        scene.add(frontHeart);
+        const frontHeartOutline = new THREE.LineLoop(outlineGeometry, outlineMaterial);
+        frontHeartOutline.rotation.y = Math.PI;
+        frontHeartOutline.scale.y = -1;
+        frontHeartOutline.renderOrder = 100; // 设置渲染顺序为较大值
+        scene.add(frontHeartOutline);
+
+        // 创建背面爱心网格
+        const backHeart = new THREE.Mesh(geometry, fillMaterial);
+        backHeart.rotation.y = 0; // 初始状态，背面爱心相对正面爱心已经是反向
+        backHeart.scale.y = -1; // 倒置背面爱心
+        backHeart.renderOrder = 100; // 设置渲染顺序为较大值
+        scene.add(backHeart);
+        const backHeartOutline = new THREE.LineLoop(outlineGeometry, outlineMaterial);
+        backHeartOutline.rotation.y = 0;
+        backHeartOutline.scale.y = -1;
+        backHeartOutline.renderOrder = 100; // 设置渲染顺序为较大值
+        scene.add(backHeartOutline);
+
+        // 计算原爱心最下面的位置（大致估算）
+        const minY = -2; // 这里根据爱心形状大致估算最下面的 y 坐标
+        const emissionPoint = new THREE.Vector3(0, minY - 1, 0);
+
+        const copiedHearts = [];
+        const velocities = [];
+        const rotationSpeeds = [];
+
+        // 渲染循环
+        function animate() {
+            requestAnimationFrame(animate);
+            // 仅绕 Y 轴旋转大爱心
+            frontHeart.rotation.y += 0.01;
+            frontHeartOutline.rotation.y = frontHeart.rotation.y;
+            backHeart.rotation.y = frontHeart.rotation.y + Math.PI; // 保持背面爱心与正面爱心同步旋转
+            backHeartOutline.rotation.y = backHeart.rotation.y;
+
+            // 根据鼠标位置移动相机
+            const targetX = mouseX * cameraMoveRange;
+            const targetY = mouseY * cameraMoveRange;
+            camera.position.x += (targetX - camera.position.x) * cameraMoveSpeed;
+            camera.position.y += (targetY - camera.position.y) * cameraMoveSpeed;
+
+            // 无限发射爱心
+            const numNewHearts = 1; // 每一帧发射的爱心数量
+            for (let i = 0; i < numNewHearts; i++) {
+                // 随机生成角度
+                const angle = Math.random() * 2 * Math.PI;
+                // 随机生成速度分量
+                const speed = Math.random() * 0.05 + 0.01;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed + 0.02; // 增加向上的速度分量
+                const vz = 0;
+
+                // 随机生成旋转速度
+                const rotationSpeed = (Math.random() - 0.5) * 0.02;
+
+                // 随机生成大小
+                const scaleFactor = Math.random() * 0.2 + 0.1;
+
+                // 复制正面爱心
+                const frontCopy = frontHeart.clone();
+                frontCopy.position.copy(emissionPoint);
+                frontCopy.scale.set(scaleFactor, -scaleFactor, scaleFactor);
+                scene.add(frontCopy);
+                copiedHearts.push(frontCopy);
+                velocities.push({ x: vx, y: vy, z: vz });
+                rotationSpeeds.push(rotationSpeed);
+
+                // 复制背面爱心
+                const backCopy = backHeart.clone();
+                backCopy.position.copy(emissionPoint);
+                backCopy.scale.set(scaleFactor, -scaleFactor, scaleFactor);
+                scene.add(backCopy);
+                copiedHearts.push(backCopy);
+                velocities.push({ x: vx, y: vy, z: vz });
+                rotationSpeeds.push(rotationSpeed);
+            }
+
+            // 移动所有复制的爱心并添加烟花轨迹效果
+            copiedHearts.forEach((heart, index) => {
+                heart.rotation.y += rotationSpeeds[index];
+                const velocity = velocities[index];
+                heart.position.x += velocity.x;
+                heart.position.y += velocity.y;
+                heart.position.z += velocity.z;
+            });
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // 处理窗口大小变化
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+
+</html>
